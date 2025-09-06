@@ -53,9 +53,9 @@ class Method:
         self.search_data = search_data
 
         self.M = [1.0 for _ in range(1 + task.problem.number_of_constraints)]
-        self.Z = [np.infty for _ in range(1 + task.problem.number_of_constraints)]
+        self.Z = [np.inf for _ in range(1 + task.problem.number_of_constraints)]
         self.dimension = task.problem.number_of_float_variables
-        self.search_data.solution.solution_accuracy = np.infty
+        self.search_data.solution.solution_accuracy = np.inf
         self.numberOfAllFunctions = task.problem.number_of_objectives + task.problem.number_of_constraints
 
         if calculator is None:
@@ -136,7 +136,18 @@ class Method:
                                       function_values=[FunctionValue()] * self.numberOfAllFunctions)
                 items.append(item)
 
-        self.calculator.calculate_functionals_for_items(items)
+        # временное решение проблемы падения метода в невычислимой точке первой итерации
+        if self.parameters.number_of_parallel_points == 1:
+            try:
+                self.calculator.calculate_functionals_for_items(items)
+            except Exception:
+                items[0].set_z(sys.float_info.max)
+                items[0].set_index(-10)
+
+            if items[0].get_index() == -10:
+                self.non_computable_iterations_count += 1
+        else:
+            self.calculator.calculate_functionals_for_items(items)
 
         for item in items:
             self.update_optimum(item)
@@ -309,7 +320,7 @@ class Method:
             print("calculate_global_r: Curr point is NONE")
             raise Exception("calculate_global_r: Curr point is NONE")
         if left_point is None:
-            curr_point.globalR = -np.infty
+            curr_point.globalR = -np.inf
             return None
         zl = left_point.get_z()
         zr = curr_point.get_z()
